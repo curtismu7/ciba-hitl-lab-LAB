@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import ShelfLink from "./components/ShelfLink.jsx";
+import VerifyMark from "./components/VerifyMark.jsx";
 // Opened from Customer Agent LAB (UC-LEARN14 routes here): strip + header Back only; no scenario or vertical is preselected.
 import ReturnLink from "./return-link/ReturnLink.jsx";
 import { getCatalog, getInfo, requestModeSwitch, resetServer, runWrite, approveCiba, denyCiba } from "./lib/api.js";
@@ -102,6 +103,7 @@ export default function App() {
               onReset={onReset}
             >
               <ShelfLink />
+              <VerifyMark id="ciba-hitl-lab" />
             </TopMenu>
           </div>
         </div>
