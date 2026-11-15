@@ -2,6 +2,7 @@
 // error the gateway returns. Approve (or refuse) as the human, replay with the identifier header,
 // and Authorize verifies the CIBA record: PERMIT, tool runs, result returns.
 import React, { useState } from "react";
+import Json from "../components/JsonPane.jsx";
 
 export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, onReset, source }) {
   const [identifier, setIdentifier] = useState("");
@@ -37,7 +38,7 @@ export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, o
           {run.rpcError ? (
             <div>
               <h4>The gateway rewrote the 403 into a JSON-RPC 2.0 error (the session survives)</h4>
-              <pre className="wire" data-testid="rpc">{JSON.stringify(run.rpcError, null, 2)}</pre>
+              <Json value={run.rpcError} label="JSON-RPC 2.0 error" testId="rpc" hot={["identifier", "code"]} />
             </div>
           ) : null}
           {run.decision ? (
@@ -46,13 +47,13 @@ export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, o
           {run.mcp ? (
             <div>
               <h4>MCP tool result</h4>
-              <pre className="wire" data-testid="mcp">{JSON.stringify(run.mcp, null, 2)}</pre>
+              <Json value={run.mcp} label="MCP tool result" testId="mcp" hot={["status", "record", "by", "for"]} />
             </div>
           ) : null}
           {run.obo ? (
             <div>
               <h4>OBO token (decoded{source === "real" ? ", hash only in Real mode" : ", mock"})</h4>
-              <pre className="wire" data-testid="obo">{JSON.stringify(source === "real" ? run.obo.claims ?? run.obo : run.obo.claims, null, 2)}</pre>
+              <Json value={source === "real" ? run.obo.claims ?? run.obo : run.obo.claims} label="OBO token claims" testId="obo" />
             </div>
           ) : null}
           {run.delta ? (
