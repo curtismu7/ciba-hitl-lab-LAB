@@ -1,9 +1,10 @@
-import { test, expect, vi } from "vitest";
+import { test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import App, { FALLBACK_BANNER } from "../App.jsx";
 import { runWrite, approveCiba, requestModeSwitch, getInfo } from "../lib/api.js";
+import { setJsonView } from "../components/JsonPane.jsx";
 
 vi.mock("../lib/api.js", () => ({
   requestModeSwitch: vi.fn(async (source) => ({ source, realAvailable: false, realReason: "Set PINGONE_* in ~/Development/.env", banner: "B" })),
@@ -32,6 +33,9 @@ vi.mock("../lib/api.js", () => ({
   decodeToken: vi.fn(),
 }));
 
+// The Form | JSON choice is shared module state: every test names the view it reads.
+beforeEach(() => setJsonView("raw"));
+
 test("flow tab: 24 numbered steps, simulate walks to step 1, the owner-approved names show", async () => {
   const user = userEvent.setup();
   render(<App />);
@@ -54,7 +58,20 @@ test("live run: write -> hitl_required with the JSON-RPC rewrite; approve -> rep
   await user.click(screen.getByRole("link", { name: "Live run" }));
   await user.click(screen.getByTestId("run-write"));
   await waitFor(() => expect(screen.getByTestId("outcome")).toHaveTextContent("hitl_required"));
+  // JSON view: the exact JSON text, the identifier stood out (hot) in the pane
+  expect(screen.getByTestId("rpc")).toHaveTextContent('"code": -32001');
+  expect(screen.getByTestId("rpc")).toHaveTextContent('"identifier": "ciba-1"');
+  expect(screen.getByTestId("rpc-box")).toHaveAttribute("data-view", "raw");
+  const hot = [...screen.getByTestId("rpc").querySelectorAll(".jtok--hot")].map((n) => n.textContent);
+  expect(hot.some((t) => t.includes("identifier"))).toBe(true);
+  expect(hot.some((t) => t.includes("code"))).toBe(true);
+  // Form view: the same data as label + value rows, switched with the Form button
+  await user.click(screen.getByTestId("rpc-formatted"));
+  expect(screen.getByTestId("rpc-box")).toHaveAttribute("data-view", "form");
   expect(screen.getByTestId("rpc")).toHaveTextContent("-32001");
+  expect(screen.getByTestId("rpc")).toHaveTextContent("ciba-1");
+  await user.click(screen.getByTestId("rpc-raw"));
+  expect(screen.getByTestId("rpc-box")).toHaveAttribute("data-view", "raw");
   // approve, then replay
   runWrite.mockResolvedValueOnce({
     ok: true, outcome: "permit", identifier: "ciba-1", source: "mock",
@@ -67,7 +84,11 @@ test("live run: write -> hitl_required with the JSON-RPC rewrite; approve -> rep
   await user.type(screen.getByLabelText(/Identifier header/), "ciba-1");
   await user.click(screen.getByTestId("run-replay"));
   await waitFor(() => expect(screen.getByTestId("outcome")).toHaveTextContent("permit"));
-  expect(screen.getByTestId("mcp")).toHaveTextContent("updated");
+  expect(screen.getByTestId("mcp")).toHaveTextContent('"status": "updated"');
+  // the tool result and the OBO claims are shared JsonPane panes too (JSON view here)
+  expect(screen.getByTestId("mcp")).toHaveClass("json--raw");
+  expect(screen.getByTestId("obo")).toHaveClass("json--raw");
+  expect(screen.getByTestId("obo")).toHaveTextContent('"sub": "user.0042"');
 });
 
 test("rule 19: the mode select renders; Real disabled with how-to when unconfigured", async () => {
