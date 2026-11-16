@@ -2,6 +2,8 @@ import { test, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import fs from "node:fs";
+import path from "node:path";
 import App, { FALLBACK_BANNER } from "../App.jsx";
 import { runWrite, approveCiba, requestModeSwitch, getInfo } from "../lib/api.js";
 import { setJsonView } from "../components/JsonPane.jsx";
@@ -111,4 +113,24 @@ test("mode switch reloads data and the run", async () => {
   await user.selectOptions(screen.getByTestId("mode-select"), "real");
   await waitFor(() => expect(requestModeSwitch).toHaveBeenCalledWith("real"));
   await waitFor(() => expect(screen.getByTestId("banner")).toHaveTextContent("REAL B"));
+});
+
+test("the live announcement is screen-reader only: it carries the shared sr-only class, which app.css defines", async () => {
+  runWrite.mockResolvedValueOnce({
+    ok: true, outcome: "hitl_required", identifier: "ciba-1", source: "mock",
+    rpcError: { jsonrpc: "2.0", id: 1, error: { code: -32001, message: "Approval required", data: { identifier: "ciba-1" } } },
+    decision: { sub: "user.0042", act: "personal-agent", tool: "update_record", result: "DENY", reason: "write requires human-in-the-loop" },
+    obo: { claims: { sub: "user.0042", act: { sub: "personal-agent" } } },
+  });
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByTestId("banner");
+  await user.click(screen.getByRole("link", { name: "Live run" }));
+  await user.click(screen.getByTestId("run-write"));
+  const live = await screen.findByText(/^Denied with an identifier/);
+  expect(live).toHaveAttribute("aria-live", "polite");
+  expect(live).toHaveClass("sr-only");
+  expect(live).not.toHaveClass("visually-hidden");
+  const css = fs.readFileSync(path.join(process.cwd(), "src", "app.css"), "utf8");
+  expect(css).toMatch(/\.sr-only\s*\{[^}]*clip:/);
 });
