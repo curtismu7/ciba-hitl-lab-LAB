@@ -76,8 +76,8 @@ export default function App() {
     return (
       <>
         <a className="skip" href="#main">Skip to content</a>
-        <header><p className="banner">{FALLBACK_BANNER}</p></header>
         <main className="page" id="main" tabIndex={-1}>
+          <p className="banner" role="note">{FALLBACK_BANNER}</p>
           {loadError ? <p className="alert" role="alert">Could not reach the lab server: {loadError}</p> : <p className="muted" role="status">Loading the lab...</p>}
         </main>
       </>
@@ -87,31 +87,33 @@ export default function App() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
-      <header>
-        <p className="banner" data-testid="banner">{banner}</p>
-        <ReturnLink app="ciba-hitl-lab" />
-        <div className="head">
-          <h1 className="head__title"><span className="head__mark">LAB</span>CIBA HITL Lab</h1>
-          <div className="head__tools">
-            <ReturnLink app="ciba-hitl-lab" variant="header" />
-            <TopMenu
-              mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onMode, realAvailable: info ? info.realAvailable : null, realHint: info?.realReason || undefined }}
-              theme={{ value: theme, onChange: setTheme }}
-              present={{ active: present, onToggle: () => setPresent((v) => { write("ciba.present", v ? "0" : "1"); return !v; }) }}
-              help={{ href: "https://github.com/curtismu7/ciba-hitl-lab#readme" }}
-              version={info?.version || null}
-              onReset={onReset}
-            >
-              <ShelfLink />
-              <VerifyMark id="ciba-hitl-lab" />
-            </TopMenu>
-          </div>
-        </div>
-        <nav aria-label="Tabs" className="tabs">
-          {TABS.map(([id, label]) => <a key={id} href={`#/${id}`} aria-current={tab === id ? "page" : undefined} className="tab">{label}</a>)}
+      <header className="shell-bar">
+        <span className="shell-brand">
+          <span className="shell-logo" aria-hidden="true">LAB</span>
+          <h1>CIBA HITL Lab</h1>
+          {info?.source === "real"
+            ? <span className="shell-badge shell-badge--real" data-testid="mode-badge">Real<span className="sr-only">: agent identity and token exchange run against your configured PingOne tenant</span></span>
+            : <span className="shell-badge" data-testid="mode-badge">Mock<span className="sr-only">: in-process mocks, no tenant contacted</span></span>}
+        </span>
+        <nav className="shell-nav" aria-label="Tabs">
+          {TABS.map(([id, label]) => <a key={id} href={`#/${id}`} aria-current={tab === id ? "page" : undefined}>{label}</a>)}
         </nav>
+        <TopMenu
+          mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onMode, realAvailable: info ? info.realAvailable : null, realHint: info?.realReason || undefined }}
+          theme={{ value: theme, onChange: setTheme }}
+          present={{ active: present, onToggle: () => setPresent((v) => { write("ciba.present", v ? "0" : "1"); return !v; }) }}
+          help={{ href: "https://github.com/curtismu7/ciba-hitl-lab#readme" }}
+          version={info?.version || null}
+          onReset={onReset}
+        >
+          <ShelfLink />
+          <VerifyMark id="ciba-hitl-lab" />
+          <ReturnLink app="ciba-hitl-lab" variant="header" />
+        </TopMenu>
       </header>
       <main className="page" id="main" tabIndex={-1}>
+        <p className="banner" role="note" data-testid="banner">{banner}</p>
+        <ReturnLink app="ciba-hitl-lab" />
         {tab === "flow"
           ? <FlowTab catalog={catalog} />
           : <RunTab run={run} busy={busy} error={error} onWrite={onWrite} onApprove={onApprove} onDeny={onDeny} onReset={onReset} source={info?.source} />}
