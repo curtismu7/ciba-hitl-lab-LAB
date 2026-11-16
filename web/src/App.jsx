@@ -119,7 +119,7 @@ export default function App() {
           : <RunTab run={run} busy={busy} error={error} onWrite={onWrite} onApprove={onApprove} onDeny={onDeny} onReset={onReset} source={info?.source} />}
       </main>
       <footer><p className="muted small">One login, one token exchange, one approval. The OBO token keeps the full scope set; per-tool narrowing happens in the Authorize policy, and a write only runs after a human - verified by Authorize, never by the agent.</p></footer>
-      <div aria-live="polite" className="visually-hidden">{announce}</div>
+      <div aria-live="polite" className="sr-only">{announce}</div>
     </>
   );
 }
