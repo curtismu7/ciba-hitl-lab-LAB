@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { hostCheck, sameOriginWrites } from './safety.js';
-import { createHealth } from './health.js';
+import { createHealth, DEMO } from './health.js';
 import { createFlow, personaOf, agentOf, gatewayOf, downstreamOf, jwtDecode } from './flow.js';
 import { buildDiagram } from './diagramData.js';
 import { createMode, MODES } from './mode.js';
@@ -38,14 +38,14 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
   });
   api.use('/health', health.router);
 
-  api.get('/info', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json({ ...mode.info(), banner: BANNER(mode.source()), epoch: flow.state.runs.length, version: (() => { try { return JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version || null; } catch { return null; } })() }); });
+  api.get('/info', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json({ ...mode.info(), version: DEMO.version || null, banner: BANNER(mode.source()), epoch: flow.state.runs.length }); });
   // Rule 19: POST /api/mode with exactly {"source": "mock"|"real"}. Real unconfigured -> 409 with the how-to.
   api.post('/mode', (req, res) => {
     const b = req.body;
     if (!b || typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length !== 1 || !MODES.includes(b.source)) return bad(res, 'body must be exactly {"source": "mock" or "real"}');
     if (b.source === 'real' && mode.info().realAvailable !== true) return res.status(409).json({ error: 'conflict', message: mode.info().realReason });
     mode.set(b.source);
-    return res.json({ ...mode.info(), banner: BANNER(mode.source()) });
+    return res.json({ ...mode.info(), version: DEMO.version || null, banner: BANNER(mode.source()) });
   });
 
   api.get('/catalog', (_req, res) => res.json({
