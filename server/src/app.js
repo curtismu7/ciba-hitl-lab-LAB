@@ -13,6 +13,7 @@ import { createMode, MODES } from './mode.js';
 import { realRun } from './realPingOne.js';
 import { workspaceId } from './workspace.js';
 import { shelfInfo } from './shelfLink.js';
+import { TALK_INTRO, TALK_OUTRO, talkLines } from './talkTrack.js';
 
 const WEB_DIST = process.env.WEB_DIST || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
 const bad = (res, message, status = 400) => res.status(status).json({ error: status === 404 ? 'not_found' : 'bad_request', message });
@@ -48,6 +49,7 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
     return res.json({ ...mode.info(), banner: BANNER(mode.source()) });
   });
 
+  api.get('/talk', (_req, res) => res.json({ talkTrack: [{ id: 'intro', title: 'Say first', say: TALK_INTRO }, ...talkLines(), { id: 'outro', title: 'Close', say: TALK_OUTRO }] }));
   api.get('/catalog', (_req, res) => res.json({
     banner: BANNER(mode.source()), source: mode.source(),
     persona: personaOf(), agent: agentOf(), gateway: gatewayOf(), downstream: downstreamOf(),
