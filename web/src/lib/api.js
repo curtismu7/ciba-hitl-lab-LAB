@@ -19,3 +19,4 @@ export const runWrite = (identifierHeader) => postJson("/api/write", identifierH
 export const approveCiba = (identifier) => postJson("/api/approve", { identifier });
 export const denyCiba = (identifier) => postJson("/api/deny", { identifier });
 export const decodeToken = (token) => postJson("/api/decode", { token });
+export const getTalkTrack = () => getJson("/api/talk");

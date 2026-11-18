@@ -9,6 +9,7 @@ import { runWrite, approveCiba, requestModeSwitch, getInfo } from "../lib/api.js
 import { setJsonView } from "../components/JsonPane.jsx";
 
 vi.mock("../lib/api.js", () => ({
+  getTalkTrack: vi.fn(async () => ({ talkTrack: [] })),
   requestModeSwitch: vi.fn(async (source) => ({ source, realAvailable: false, realReason: "Set PINGONE_* in ~/Development/.env", banner: "B" })),
   getCatalog: vi.fn(async () => ({
     banner: "B", source: "mock",

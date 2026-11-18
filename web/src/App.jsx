@@ -3,8 +3,9 @@ import ShelfLink from "./components/ShelfLink.jsx";
 import VerifyMark from "./components/VerifyMark.jsx";
 // Opened from Customer Agent LAB (UC-LEARN14 routes here): strip + header Back only; no scenario or vertical is preselected.
 import ReturnLink from "./return-link/ReturnLink.jsx";
-import { getCatalog, getInfo, requestModeSwitch, resetServer, runWrite, approveCiba, denyCiba } from "./lib/api.js";
+import { getCatalog, getInfo, getTalkTrack, requestModeSwitch, resetServer, runWrite, approveCiba, denyCiba } from "./lib/api.js";
 import TopMenu from "./top-menu/TopMenu";
+import TalkTrackDialog from "./talk-track/TalkTrackDialog.jsx";
 import FlowTab from "./tabs/FlowTab.jsx";
 import RunTab from "./tabs/RunTab.jsx";
 
@@ -22,6 +23,9 @@ export default function App() {
   const [tab, setTab] = useState(tabFromHash);
   const [theme, setTheme] = useState(() => (["light", "dark"].includes(read("ciba.theme", "")) ? read("ciba.theme", "") : "auto"));
   const [present, setPresent] = useState(() => read("ciba.present", "0") === "1");
+  const [talkOpen, setTalkOpen] = useState(false);
+  const [talk, setTalk] = useState([]);
+  useEffect(() => { getTalkTrack().then((t) => setTalk(t.talkTrack ?? [])).catch(() => {}); }, []);
   const [run, setRun] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -102,6 +106,7 @@ export default function App() {
           mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onMode, realAvailable: info ? info.realAvailable : null, realHint: info?.realReason || undefined }}
           theme={{ value: theme, onChange: setTheme }}
           present={{ active: present, onToggle: () => setPresent((v) => { write("ciba.present", v ? "0" : "1"); return !v; }) }}
+          talkTrack={{ active: talkOpen, onToggle: () => setTalkOpen((v) => !v) }}
           help={{ href: "https://github.com/curtismu7/ciba-hitl-lab#readme" }}
           version={info?.version || null}
           onReset={onReset}
@@ -120,6 +125,7 @@ export default function App() {
       </main>
       <footer><p className="muted small">One login, one token exchange, one approval. The OBO token keeps the full scope set; per-tool narrowing happens in the Authorize policy, and a write only runs after a human - verified by Authorize, never by the agent.</p></footer>
       <div aria-live="polite" className="sr-only">{announce}</div>
+      <TalkTrackDialog isOpen={talkOpen} onClose={() => setTalkOpen(false)} talk={talk} />
     </>
   );
 }
