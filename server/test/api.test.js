@@ -66,6 +66,20 @@ test('deny path: a refused CIBA never permits the replay', async () => {
   assert.equal(replay.outcome, 'hitl_required');
 });
 
+test('expire path: an unanswered CIBA record expires; the replay denies again; decided ids are 404', async () => {
+  const app = mk();
+  const first = (await call(app, 'POST', '/api/write', {})).json;
+  assert.equal((await call(app, 'POST', '/api/expire', { identifier: first.identifier })).status, 200);
+  const replay = (await call(app, 'POST', '/api/write', { identifierHeader: first.identifier })).json;
+  assert.equal(replay.outcome, 'hitl_required');
+  assert.equal((await call(app, 'POST', '/api/expire', { identifier: first.identifier })).status, 404);
+  assert.equal((await call(app, 'POST', '/api/approve', { identifier: first.identifier })).status, 404);
+  const decided = (await call(app, 'POST', '/api/write', {})).json;
+  await call(app, 'POST', '/api/approve', { identifier: decided.identifier });
+  assert.equal((await call(app, 'POST', '/api/expire', { identifier: decided.identifier })).status, 404);
+  assert.equal((await call(app, 'POST', '/api/expire', { identifier: 'nope' })).status, 404);
+});
+
 test('decode returns claims for a mock token and refuses junk', async () => {
   const app = mk();
   const run = (await call(app, 'POST', '/api/write', {})).json;

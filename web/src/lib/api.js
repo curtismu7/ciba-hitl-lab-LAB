@@ -18,5 +18,6 @@ export const resetServer = () => postJson("/api/reset");
 export const runWrite = (identifierHeader) => postJson("/api/write", identifierHeader ? { identifierHeader } : {});
 export const approveCiba = (identifier) => postJson("/api/approve", { identifier });
 export const denyCiba = (identifier) => postJson("/api/deny", { identifier });
+export const expireCiba = (identifier) => postJson("/api/expire", { identifier });
 export const decodeToken = (token) => postJson("/api/decode", { token });
 export const getTalkTrack = () => getJson("/api/talk");

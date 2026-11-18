@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import Json from "../components/JsonPane.jsx";
 
-export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, onReset, source }) {
+export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, onExpire, onReset, source }) {
   const [identifier, setIdentifier] = useState("");
   const current = run?.identifier ?? "";
   return (
@@ -18,6 +18,7 @@ export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, o
             <>
               <button type="button" className="btn" data-testid="run-approve" disabled={busy} onClick={() => onApprove(run.identifier)}>Approve as the human (CIBA)</button>
               <button type="button" className="btn" data-testid="run-deny" disabled={busy} onClick={() => onDeny(run.identifier)}>Refuse</button>
+              <button type="button" className="btn" data-testid="run-expire" disabled={busy} onClick={() => onExpire(run.identifier)}>Let it expire</button>
             </>
           ) : null}
           {run ? <button type="button" className="btn" data-testid="run-reset" disabled={busy} onClick={onReset}>Reset state</button> : null}

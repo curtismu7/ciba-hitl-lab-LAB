@@ -143,5 +143,12 @@ export function createFlow({ signer = fixtureSigner, verifier = createVerifier()
       state.approvals[identifier] = 'denied';
       return true;
     },
+    // Demo knob: retire a pending CIBA record now, the way an unanswered request would expire.
+    // A pending record only: an approved, denied or unknown identifier is refused.
+    expireCiba(identifier) {
+      if (typeof identifier !== 'string' || state.approvals[identifier] !== 'pending') return false;
+      state.approvals[identifier] = 'expired';
+      return true;
+    },
   };
 }
