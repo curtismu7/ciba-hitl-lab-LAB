@@ -84,6 +84,13 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
     if (typeof id !== 'string' || id.length === 0 || id.length > 200) return bad(res, 'identifier required');
     return flow.denyCiba(id) ? res.json({ ok: true, identifier: id, state: 'denied' }) : res.status(404).json({ error: 'not_found', message: 'unknown or expired identifier' });
   });
+  // Demo knob: let a pending CIBA record expire now (unanswered-request path). A replay with
+  // an expired identifier denies again, exactly as step 17 says for an expired request.
+  api.post('/expire', (req, res) => {
+    const id = req.body?.identifier;
+    if (typeof id !== 'string' || id.length === 0 || id.length > 200) return bad(res, 'identifier required');
+    return flow.expireCiba(id) ? res.json({ ok: true, identifier: id, state: 'expired' }) : res.status(404).json({ error: 'not_found', message: 'unknown or expired identifier' });
+  });
 
   api.post('/decode', (req, res) => {
     const t = String(req.body?.token ?? '');

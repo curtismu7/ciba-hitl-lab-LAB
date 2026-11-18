@@ -3,7 +3,7 @@ import ShelfLink from "./components/ShelfLink.jsx";
 import VerifyMark from "./components/VerifyMark.jsx";
 // Opened from Customer Agent LAB (UC-LEARN14 routes here): strip + header Back only; no scenario or vertical is preselected.
 import ReturnLink from "./return-link/ReturnLink.jsx";
-import { getCatalog, getInfo, getTalkTrack, requestModeSwitch, resetServer, runWrite, approveCiba, denyCiba } from "./lib/api.js";
+import { getCatalog, getInfo, getTalkTrack, requestModeSwitch, resetServer, runWrite, approveCiba, denyCiba, expireCiba } from "./lib/api.js";
 import TopMenu from "./top-menu/TopMenu";
 import TalkTrackDialog from "./talk-track/TalkTrackDialog.jsx";
 import FlowTab from "./tabs/FlowTab.jsx";
@@ -62,6 +62,7 @@ export default function App() {
   }, []);
   const onApprove = useCallback(async (id) => { setBusy(true); setError(null); try { await approveCiba(id); setAnnounce("Approved. Replay the write with the identifier."); } catch (e) { setError(e.message); } setBusy(false); }, []);
   const onDeny = useCallback(async (id) => { setBusy(true); setError(null); try { await denyCiba(id); setAnnounce("Refused. The refusal is terminal: no replay with this identifier can ever permit."); } catch (e) { setError(e.message); } setBusy(false); }, []);
+  const onExpire = useCallback(async (id) => { setBusy(true); setError(null); try { await expireCiba(id); setAnnounce("Expired. An unanswered request expires: a replay with this identifier denies again."); } catch (e) { setError(e.message); } setBusy(false); }, []);
   const onReset = useCallback(async () => { await resetServer(); setRun(null); setAnnounce("Reset."); }, []);
 
   const onMode = useCallback(async (next) => {
@@ -121,7 +122,7 @@ export default function App() {
         <ReturnLink app="ciba-hitl-lab" />
         {tab === "flow"
           ? <FlowTab catalog={catalog} />
-          : <RunTab run={run} busy={busy} error={error} onWrite={onWrite} onApprove={onApprove} onDeny={onDeny} onReset={onReset} source={info?.source} />}
+          : <RunTab run={run} busy={busy} error={error} onWrite={onWrite} onApprove={onApprove} onDeny={onDeny} onExpire={onExpire} onReset={onReset} source={info?.source} />}
       </main>
       <footer><p className="muted small">One login, one token exchange, one approval. The OBO token keeps the full scope set; per-tool narrowing happens in the Authorize policy, and a write only runs after a human - verified by Authorize, never by the agent.</p></footer>
       <div aria-live="polite" className="sr-only">{announce}</div>
