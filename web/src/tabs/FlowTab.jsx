@@ -1,9 +1,14 @@
 // The 24-step diagram, rendered from the server's diagram-studio/1 data (catalog.diagram).
 // Rule 17: the nodes/edges/steps are server-side data validated with the studio's gate; this
 // component only renders them. Movable boxes, Simulate, Reset (restores positions), speed control.
+// Diagram standard: the shared diagram-kit draws the arrow labels (above the boxes, clear of each
+// other) and a click expands a box in place with its passport.
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactFlow, Background, Controls, Panel, MarkerType, Handle, Position, useNodesState } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { ArrowNoLabel, EdgeLabels, FitOpen, Passport, PassportActions } from "../diagram-kit/DiagramKit.jsx";
+import { boxPassport, sidePoint } from "../diagram-kit/diagramKit.js";
+import "../diagram-kit/diagram-kit.css";
 
 // Group colors are the six diagram-studio palette names, mapped onto the lab's theme tokens
 // (the same roles as AI-DEMO2's shared participant palette: user/info blue, agent/dark, PingOne/success green,
@@ -17,17 +22,20 @@ const POS = [10, 30, 50, 70, 90];
 
 function Box({ data }) {
   return (
-    <div className={`dg-node dg-${data.role} ${data.hot ? "hot" : ""}`}>
+    <div className={`dg-node dg-${data.role} ${data.hot ? "hot" : ""}${data.passport ? " dk-open" : ""}`}>
       {Object.entries(SIDES).map(([k, pos]) =>
         POS.map((p) => (
           <Handle key={k + p} id={k + p} type="source" position={pos}
             style={(k === "l" || k === "r") ? { top: `${p}%` } : { left: `${p}%` }} />
         )))}
       <div>{data.label}</div>
+      {data.passport && <Passport p={data.passport} />}
     </div>
   );
 }
 const nodeTypes = { box: Box };
+// The arrow draws the curve only: EdgeLabels draws every label, above the boxes.
+const edgeTypes = { arrow: ArrowNoLabel };
 
 export default function FlowTab({ catalog }) {
   const diagram = catalog?.diagram;
@@ -46,6 +54,7 @@ export default function FlowTab({ catalog }) {
   const [running, setRunning] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [open, setOpen] = useState(-1);
+  const [openBox, setOpenBox] = useState(null);
   const [collapsed, setCollapsed] = useState({});
 
   useEffect(() => { if (running) setOpen(step); }, [running, step]);
@@ -72,28 +81,47 @@ export default function FlowTab({ catalog }) {
   const edges = useMemo(() => steps.map((s, i) => {
     const color = stepColor(i);
     const active = i === step, seen = i < step;
-    const marker = { type: MarkerType.ArrowClosed, color };
     return {
       id: `e${i}`, source: s.from, target: s.to,
-      type: "smoothstep", animated: active,
-      label: String(i + 1), labelBgPadding: [5, 3], labelBgBorderRadius: 8,
-      labelStyle: { fontWeight: 700, fill: color },
-      labelBgStyle: { fill: "var(--surface)", stroke: color, strokeWidth: 1.5 },
+      type: "arrow", animated: active,
+      className: active ? "dg-edge--active" : undefined,
       style: { stroke: s.color ? `var(--dg-${s.color})` : color, strokeWidth: active ? 3.5 : 1.8, strokeDasharray: s.dashed ? "6 4" : undefined, opacity: step === -1 ? 0.9 : active ? 1 : seen ? 0.7 : 0.3 },
-      markerEnd: marker,
+      markerEnd: { type: MarkerType.ArrowClosed, color },
       zIndex: active ? 10 : 1,
     };
   }).filter(Boolean), [steps, step]);
 
+  // One label per arrow, drawn by the kit above the boxes, clear of the other labels.
+  const labels = useMemo(() => steps.map((s, i) => ({
+    id: `e${i}`, text: String(i + 1), source: s.from, target: s.to,
+    sourceHandle: "r", targetHandle: "l",
+    active: i === step, dim: step >= 0 && i > step,
+  })), [steps, step]);
+
+  // The graph for the box passport (group, reach, arrows).
+  const graph = useMemo(() => ({
+    nodes: nodesData.map((n) => ({ id: n.id, label: n.label, group: n.kind })),
+    edges: steps.map((s, i) => ({ source: s.from, target: s.to, label: `${i + 1}. ${s.label}` })),
+  }), [nodesData, steps]);
+
+  const actions = useMemo(() => ({
+    open: (id) => setOpenBox(id), close: () => setOpenBox(null),
+    link: (id) => { const u = new URL(window.location.href); u.searchParams.set("box", id); return u.toString(); },
+  }), []);
+
   const shownNodes = useMemo(() => {
     const hot = step >= 0 && steps[step] ? [steps[step].from, steps[step].to] : [];
-    return nodes.map((n) => ({ ...n, data: { ...n.data, hot: hot.includes(n.id) } }));
-  }, [nodes, step]);
+    return nodes.map((n) => ({
+      ...n,
+      zIndex: n.id === openBox ? 10 : undefined,
+      data: { ...n.data, hot: hot.includes(n.id), passport: n.id === openBox ? boxPassport(graph, n.id) : null },
+    }));
+  }, [nodes, step, steps, openBox, graph]);
 
   const curG = step >= 0 && steps[step]
     ? groupEntries.findIndex(([key]) => key === (nodesData.find((n) => n.id === steps[step].to)?.kind))
     : -1;
-  const reset = () => { setRunning(false); setStep(-1); setOpen(-1); setNodes(initNodes); };
+  const reset = () => { setRunning(false); setStep(-1); setOpen(-1); setOpenBox(null); setNodes(initNodes); };
   const simulate = () => {
     if (running) { setRunning(false); return; }
     if (step >= steps.length - 1 || step < 0) setStep(0);
@@ -156,22 +184,27 @@ export default function FlowTab({ catalog }) {
         </div>
         <div className="canvas" data-testid="diagram">
           <h2 className="flow-h flow-h--canvas"><span className="step-num" aria-hidden="true">3</span>The diagram</h2>
-          <ReactFlow nodes={shownNodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange}
-            connectionMode="loose" nodesConnectable={false} fitView fitViewOptions={{ padding: 0.1 }} minZoom={0.3} proOptions={{ hideAttribution: true }}>
-            <Background gap={20} />
-            <Controls showInteractive={false} />
-            <Panel position="bottom-left" className="legend">
-              {groupEntries.map(([key, g], gi) => (
-                <button key={key} type="button" className={"chip" + (gi === curG ? " on" : "")} style={{ "--gc": GROUP_COLORS[g.color] }}
-                  title={g.label} onClick={() => {
-                    const first = steps.findIndex((st) => (nodesData.find((n) => n.id === st.to)?.kind) === key);
-                    if (first >= 0) { setRunning(false); setStep(first); setOpen(first); }
-                  }}>
-                  {g.label}
-                </button>
-              ))}
-            </Panel>
-          </ReactFlow>
+          <PassportActions.Provider value={actions}>
+            <ReactFlow nodes={shownNodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
+              connectionMode="loose" nodesConnectable={false} fitView fitViewOptions={{ padding: 0.1 }} minZoom={0.3} proOptions={{ hideAttribution: true }}
+              onNodeClick={(_, n) => setOpenBox((o) => (o === n.id ? null : n.id))} onPaneClick={() => setOpenBox(null)}>
+              <Background gap={20} />
+              <Controls showInteractive={false} />
+              <EdgeLabels items={labels} pointFor={(box, handle) => sidePoint(box, String(handle))} fallback={{ w: 60, h: 30 }} />
+              <FitOpen open={openBox} closePadding={0.1} />
+              <Panel position="bottom-left" className="legend">
+                {groupEntries.map(([key, g], gi) => (
+                  <button key={key} type="button" className={"chip" + (gi === curG ? " on" : "")} style={{ "--gc": GROUP_COLORS[g.color] }}
+                    title={g.label} onClick={() => {
+                      const first = steps.findIndex((st) => (nodesData.find((n) => n.id === st.to)?.kind) === key);
+                      if (first >= 0) { setRunning(false); setStep(first); setOpen(first); }
+                    }}>
+                    {g.label}
+                  </button>
+                ))}
+              </Panel>
+            </ReactFlow>
+          </PassportActions.Provider>
         </div>
       </div>
     </div>
