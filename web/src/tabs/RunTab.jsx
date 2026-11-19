@@ -7,6 +7,10 @@ import Json from "../components/JsonPane.jsx";
 export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, onExpire, onReset, source }) {
   const [identifier, setIdentifier] = useState("");
   const current = run?.identifier ?? "";
+  // Pre-fill the replay input with the identifier the last DENY produced, so the
+  // approve -> replay path works without hand-copying the id. A pasted value
+  // still wins; run.identifier only refills when the field is untouched.
+  const effectiveId = identifier || current;
   return (
     <section aria-label="Run" className="stack">
       <div className="card">
@@ -26,8 +30,8 @@ export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, o
         {run ? (
           <div className="replay">
             <label className="inline" htmlFor="idhdr">Identifier header (replay)</label>
-            <input id="idhdr" value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="paste the identifier" />
-            <button type="button" className="btn" data-testid="run-replay" disabled={busy || !identifier} onClick={() => onWrite(identifier)}>Replay with identifier</button>
+            <input id="idhdr" value={effectiveId} onChange={(e) => setIdentifier(e.target.value)} placeholder="paste the identifier" />
+            <button type="button" className="btn" data-testid="run-replay" disabled={busy || !effectiveId} onClick={() => onWrite(effectiveId)}>Replay with identifier</button>
           </div>
         ) : null}
         {error ? <p className="alert" role="alert">{error}</p> : null}
