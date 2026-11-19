@@ -42,6 +42,7 @@ code { font-size: 13px; overflow-wrap: anywhere; }
 .controls label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--text); min-width: 0; max-width: 100%; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 14px; align-items: start; }
 .cols > * { min-width: 0; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
 .check { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; padding: 0; accent-color: var(--accent); flex: none; }
@@ -139,8 +140,14 @@ form.stack button[type="submit"] { justify-self: start; margin-top: 4px; }
 .steps li { margin: 4px 0 4px 0; padding-left: 4px; }
 
 /* Flow tab: diagram + step list. Tokens only, no colour literals. */
-.flowwrap { display: flex; flex-direction: column; height: calc(100vh - 220px); min-height: 480px; }
+/* Numbered step badge next to section headings (the page reads top to bottom: walk, steps, diagram). */
+.step-num { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent-gradient); color: var(--on-accent); font: 700 11px var(--font-mono);
+  margin-right: 8px; vertical-align: 2px; }
+.flow-h { margin: 0 0 8px; font-size: 17px; }
 .flow-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0 8px; }
+.flow-h + .btn, .flow-tools .flow-h { margin-right: 8px; }
+.flow-h--canvas { margin: 8px 12px 0; }
 .caption { padding: 10px 14px; min-height: 72px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; font-size: 13px; line-height: 1.45; box-sizing: border-box; overflow: auto; }
 .caption b { color: var(--accent); }
 .caption pre { margin: 6px 0 0; font-size: 11.5px; font-family: var(--font-mono); white-space: pre-wrap; }
@@ -176,7 +183,7 @@ form.stack button[type="submit"] { justify-self: start; margin-top: 4px; }
 .chip.on b { color: var(--on-accent); }
 .replay { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .replay input { min-width: 220px; }
-@media (max-width: 900px) { .steplist { display: none; } .flowwrap { height: auto; } .canvas { height: 60vh; } }
+@media (max-width: 900px) { .steplist { display: none; } .flowwrap { height: auto; } .canvas { height: 60vh; } .cols { grid-template-columns: 1fr; } }
 
 /* Diagram nodes: the Ping box look (dark fills both themes, --on-box text), like AI-DEMO2's StaticFlowDiagram pingStyle. */
 .react-flow__background { background: var(--bg-lab); }

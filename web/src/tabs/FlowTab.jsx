@@ -105,6 +105,7 @@ export default function FlowTab({ catalog }) {
   return (
     <div className="flowwrap">
       <div className="flow-tools">
+        <h2 className="flow-h"><span className="step-num" aria-hidden="true">1</span>Walk the flow</h2>
         <button type="button" className="btn primary" onClick={simulate}>{running ? "Pause" : step >= steps.length - 1 ? "Replay" : "Simulate"}</button>
         <button type="button" className="btn" onClick={() => { setRunning(false); setStep((x) => Math.min(x + 1, steps.length - 1)); }}>Next step</button>
         <button type="button" className="btn" onClick={reset}>Reset</button>
@@ -123,6 +124,7 @@ export default function FlowTab({ catalog }) {
       </div>
       <div className="flow-main">
         <div className="steplist" data-testid="steplist">
+          <h2 className="flow-h"><span className="step-num" aria-hidden="true">2</span>Steps</h2>
           {groupEntries.map(([key, g], gi) => {
             const members = steps.map((st, i) => ({ st, i })).filter(({ st }) => (nodesData.find((n) => n.id === st.to)?.kind) === key);
             if (!members.length) return null;
@@ -153,6 +155,7 @@ export default function FlowTab({ catalog }) {
           })}
         </div>
         <div className="canvas" data-testid="diagram">
+          <h2 className="flow-h flow-h--canvas"><span className="step-num" aria-hidden="true">3</span>The diagram</h2>
           <ReactFlow nodes={shownNodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange}
             connectionMode="loose" nodesConnectable={false} fitView fitViewOptions={{ padding: 0.1 }} minZoom={0.3} proOptions={{ hideAttribution: true }}>
             <Background gap={20} />
