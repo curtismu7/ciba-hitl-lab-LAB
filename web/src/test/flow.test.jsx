@@ -68,7 +68,8 @@ test("live run: write -> hitl_required with the JSON-RPC rewrite; approve -> rep
   expect(screen.getByTestId("rpc-box")).toHaveAttribute("data-view", "raw");
   const hot = [...screen.getByTestId("rpc").querySelectorAll(".jtok--hot")].map((n) => n.textContent);
   expect(hot.some((t) => t.includes("identifier"))).toBe(true);
-  expect(hot.some((t) => t.includes("code"))).toBe(true);
+  // hot is neutral now and the lab marks only the identifier; the error code is no longer stood out
+  expect(hot.some((t) => t.includes("code"))).toBe(false);
   // Form view: the same data as label + value rows, switched with the Form button
   await user.click(screen.getByTestId("rpc-formatted"));
   expect(screen.getByTestId("rpc-box")).toHaveAttribute("data-view", "form");
