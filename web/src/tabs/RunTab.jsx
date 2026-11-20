@@ -43,7 +43,7 @@ export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, o
           {run.rpcError ? (
             <div>
               <h4>The gateway rewrote the 403 into a JSON-RPC 2.0 error (the session survives)</h4>
-              <Json value={run.rpcError} label="JSON-RPC 2.0 error" testId="rpc" hot={["identifier", "code"]} />
+              <Json value={run.rpcError} label="JSON-RPC 2.0 error" testId="rpc" hot={["identifier"]} />
             </div>
           ) : null}
           {run.decision ? (
@@ -52,7 +52,7 @@ export default function RunTab({ run, busy, error, onWrite, onApprove, onDeny, o
           {run.mcp ? (
             <div>
               <h4>MCP tool result</h4>
-              <Json value={run.mcp} label="MCP tool result" testId="mcp" hot={["status", "record", "by", "for"]} />
+              <Json value={run.mcp} label="MCP tool result" testId="mcp" hot={["by", "for"]} />
             </div>
           ) : null}
           {run.obo ? (
