@@ -1,0 +1,49 @@
+{
+  "name": "CIBA HITL Lab",
+  "slug": "ciba-hitl-lab",
+  "description": "API collection for CIBA HITL Lab: the human-in-the-loop CIBA story against in-process mocks (mock IAM, mock Authorize policy, mock CIBA, mock gateway, mock MCP/RS). A write starts the approval request, approve/deny resolve the identifier, expire expires it, decode inspects the tokens. Everything is a labelled mock; the lab has no live mode.",
+  "baseUrl": "http://localhost:7580",
+  "env": {},
+  "variables": {
+    "CIBA_IDENTIFIER": "filled by the Start approval request's test script"
+  },
+  "folders": [
+    {
+      "name": "Sanity (mock, labelled)",
+      "description": "Health, mode info and the scenario catalog (persona, agent, exchanger, downstream).",
+      "requests": [
+        { "name": "Health", "method": "GET", "path": "/api/health",
+          "tests": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json().state).to.eql('ready');"] },
+        { "name": "Info", "method": "GET", "path": "/api/info",
+          "tests": ["pm.response.to.have.status(200);"] },
+        { "name": "Scenario catalog", "method": "GET", "path": "/api/catalog",
+          "tests": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json()).to.have.property('persona');"] }
+      ]
+    },
+    {
+      "name": "The CIBA beat",
+      "description": "Write starts the approval (backchannel auth request); its identifier chains into approve, deny and expire. Expire needs a fresh identifier, so it runs last.",
+      "requests": [
+        { "name": "Start an approval request", "method": "POST", "path": "/api/write",
+          "body": {},
+          "tests": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json().ok).to.eql(true);", "pm.collectionVariables.set('CIBA_IDENTIFIER', pm.response.json().identifier);"] },
+        { "name": "Approve without an identifier (negative)", "method": "POST", "path": "/api/approve",
+          "body": {},
+          "tests": ["pm.expect(pm.response.code).to.eql(400);"] },
+        { "name": "Approve the request", "method": "POST", "path": "/api/approve",
+          "body": { "identifier": "{{CIBA_IDENTIFIER}}" },
+          "tests": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json().state).to.eql('approved');"] },
+        { "name": "Start and expire another", "method": "POST", "path": "/api/expire",
+          "prerequest": [],
+          "body": { "identifier": "stale-identifier" },
+          "tests": ["pm.expect(pm.response.code).to.be.oneOf([404, 200]);"] },
+        { "name": "Decode a non-JWT (negative)", "method": "POST", "path": "/api/decode",
+          "body": { "token": "not-a-jwt" },
+          "tests": ["pm.expect(pm.response.code).to.eql(400);"] },
+        { "name": "Reset", "method": "POST", "path": "/api/reset",
+          "body": {},
+          "tests": ["pm.response.to.have.status(200);"] }
+      ]
+    }
+  ]
+}
