@@ -36,6 +36,15 @@ Real mode reads the ONE shared settings file `~/Development/.env` (never a per-a
 2. **Live run tab**: Call the write tool -> DENY + identifier + the JSON-RPC 2.0 error. Approve as the human, replay with the identifier -> PERMIT, the tool result returns. Replay again with the same identifier -> denied (single use).
 3. **Real button**: disabled with a how-to until the `PINGONE_*` + `CIBA_LAB_*` variables exist in `~/Development/.env` (restart after setting).
 
+### Postman
+
+`postman/ciba-hitl-lab.postman_collection.json` drives the beat without the UI: the write tool (DENY + identifier, chained via a collection variable), the tokenless negative, Approve (state becomes `approved`), the expire path, the decode negative and Reset. No environment needed — every server is an in-process labelled mock.
+
+```
+node ../../shared/postman/generator.mjs --spec postman/spec.json            # regenerate (never hand-edit the output)
+npx newman run postman/ciba-hitl-lab.postman_collection.json
+```
+
 ## Ports
 
 7580-7589, default 7580. Start with `PORT=<other port in 7580-7589> npm start`.
