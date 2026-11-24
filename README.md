@@ -23,6 +23,16 @@ npm start         # http://localhost:7580
 
 Endpoints: `GET /api/health`, `GET /api/catalog`, `POST /api/write`, `POST /api/approve`, `POST /api/deny`, `POST /api/decode`, `POST /api/reset`, `POST /api/mode`, `GET /api/info`.
 
+## What each layer logged for this run (rule 27)
+
+The Run tab shows the shared panel under the run: one write call across the six layers. Rows are what the lab's flow computed for that call; nothing is read from a product log.
+
+- **Where the lines live.** The lab process's stdout: one line per decision, `<time> ciba-hitl-lab decision step=... layer=... actor=... result=passed|stopped|unclear run=<id>`. Every value passes the masker and the line sanitiser; no field names a matcher word, a token or an identifier.
+- **What is a decision.** The OBO exchange is an allowed Privilege-layer row (the token minted with its actor claim). The write's policy decision is the Authorize layer: refused on the first call (DENY with a CIBA identifier), allowed on an approved replay (PERMIT, single use). The gateway's JSON-RPC rewrite of the raw 403 repeats that decision, so it is information; the mock resource server's tool run is the Resource server row. A denied write never reaches the resource server.
+- **The chain.** Person is the persona's sub and Agent is the agent client id, both read from the OBO token the run itself minted (simulated); Scopes are the token's scope claim, read back from the run's answer. The lab has no Privilege policy node, so the chain's policy step is empty.
+- **No run, no record.** An approve, a deny, an expire or a Reset began no run (they change a CIBA record the NEXT replay reads): the page says so and shows no older record. The lab keeps the last 12 runs; Reset clears them.
+- **Real mode.** The token legs run live against the owner's tenant and the run is recorded the same way; the decision, the rewrite and the tool execution stay simulated, and the panel's rows say which is which.
+
 How it fits together: `docs/architecture.md`. What is honest and what is not: `docs/safety.md`. Sources: `docs/references.md`. Owner-only live comparisons: `docs/live-checks.md`. Generated from the step data: `docs/talk-track.md`, `content-pack.json`, `docs/shelf-entry.json`.
 
 ## Settings file

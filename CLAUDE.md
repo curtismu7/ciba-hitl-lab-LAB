@@ -35,3 +35,4 @@ npm ci && npm test && npm run doctor && npm run build -w web
 ```
 
 Then drive the real page (port 7580): Simulate the 24 steps, then on Live run: write, read the JSON-RPC error, approve, replay with the identifier, see PERMIT + the tool result, replay again for the single-use refusal, flip Mock/Real.
+- Run observability (rule 27): `web/src/run-observability/` and `server/src/runObservability.js` are vendored byte-for-byte from `AI-DEMO-Standalone/shared/run-observability/` and pinned (`scripts/run-observability.pin.test.mjs`; `node scripts/run-observability-checkPin.mjs .`). This lab reads no logs, so it vendors the core only: no readers file and no reader setting anywhere. One write call = one run on `POST /api/write`; the GET record route is `/api/write/run`; the approve/deny/expire routes began no run. One stdout line per decision. The chain's user/agent come from the OBO token the run minted.
