@@ -104,6 +104,7 @@ export default function App() {
           {TABS.map(([id, label]) => <a key={id} href={`#/${id}`} aria-current={tab === id ? "page" : undefined}>{label}</a>)}
         </nav>
         <TopMenu
+          postman={{ repo: "curtismu7/ciba-hitl-lab-LAB", slug: "ciba-hitl-lab" }}
           mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onMode, realAvailable: info ? info.realAvailable : null, realHint: info?.realReason || undefined }}
           theme={{ value: theme, onChange: setTheme }}
           present={{ active: present, onToggle: () => setPresent((v) => { write("ciba.present", v ? "0" : "1"); return !v; }) }}
