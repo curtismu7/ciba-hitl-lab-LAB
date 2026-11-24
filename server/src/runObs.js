@@ -66,12 +66,15 @@ export function writeEvents(run) {
     `The mock exchange granted the OBO token: subject kept, actor ${agent ? 'added' : 'absent'}, audience moved to the AI gateway, the full scope set kept. The token does not narrow per tool.`,
     { exchange: 'rfc8693', ...(run.decision?.sub ? { subject: run.decision.sub } : {}) }));
   // The policy decision on the write (step 10 / step 17): DENY with identifier, or PERMIT.
+  // The chain's policy node (SPEC-chain-view-2026-11-24): the write decision is this lab's policy decision, so the Authorize row
+  // carries it. This lab's exchange is not a policy decision, so the Privilege row carries no policy key.
   const permit = run.outcome === 'permit';
+  const policy = { product: PRODUCT.authorize, decision: permit ? 'permit' : 'deny', ...(run.identifier ? { id: run.identifier } : {}) };
   evs.push(ev('authorize', 'write-decision', permit ? 'allowed' : 'refused',
     permit
       ? 'The mock Authorize policy verified the CIBA approval for this identifier (single use) and permitted the write.'
       : 'The mock Authorize policy requires human approval for a write: it denied the call and started a CIBA request, returning the identifier to carry to the replay.',
-    { decision: permit ? 'PERMIT' : 'DENY', ...(run.identifier ? { identifier: run.identifier } : {}), ...(run.decision?.reason ? { reason: run.decision.reason } : {}) }));
+    { decision: permit ? 'PERMIT' : 'DENY', policy, ...(run.identifier ? { identifier: run.identifier } : {}), ...(run.decision?.reason ? { reason: run.decision.reason } : {}) }));
   // The gateway rewrite (step 12) or the relayed answer (steps 21-24): information, it repeats the decision above it.
   if (!permit) {
     evs.push({

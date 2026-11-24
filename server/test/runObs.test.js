@@ -72,7 +72,10 @@ test('the chain view: user, agent and scopes come from the OBO token the run min
   assert.equal(c.user.value, 'user.0042');
   assert.equal(c.agent.value, 'personal-agent');
   assert.deepEqual(c.scopes.values, ['api:read', 'api:write', 'api:delete']);
-  assert.equal(c.policies.length, 0, 'this lab has no Privilege policy node: its decisions are the exchange and the Authorize row');
+  assert.equal(c.policies.length, 1, 'the write decision is this lab\'s policy node');
+  assert.equal(c.policies[0].decision, 'deny');
+  assert.equal(c.policies[0].product, 'lab mock Authorize policy');
+  assert.ok(c.policies[0].id, 'the CIBA identifier is the policy id');
 });
 
 test('every value of a line survives the sanitiser: a hostile identifier or run id cannot add a key=value or a line', () => {
