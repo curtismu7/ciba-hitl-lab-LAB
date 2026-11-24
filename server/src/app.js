@@ -13,6 +13,8 @@ import { createMode, MODES } from './mode.js';
 import { realRun } from './realPingOne.js';
 import { workspaceId } from './workspace.js';
 import { shelfInfo } from './shelfLink.js';
+import { NO_RUN, createRunLog, writeEvents, recordOf, reportFailure, runField } from './runObs.js';
+import { RunObsError } from './runObservability.js';
 import { TALK_INTRO, TALK_OUTRO, talkLines } from './talkTrack.js';
 
 const WEB_DIST = process.env.WEB_DIST || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
@@ -21,7 +23,7 @@ export const BANNER = (source) => source === 'real'
   ? 'REAL mode: the agent identity, the RFC 8693 exchange and the CIBA backchannel run against YOUR PingOne tenant (owner-configured). The policy decision, the gateway JSON-RPC rewrite and the MCP tool execution stay SIMULATED app-side. Token bodies stay on the server; the Worker secret is a hash only.'
   : 'MOCK mode. SIMULATED: in-process mock IAM, mock Authorize policy, mock CIBA, mock gateway and mock MCP/RS. No tenant, no outbound network. Tokens are mock and labelled.';
 
-export function createApp({ health = createHealth(), mode = createMode(), flow = createFlow() } = {}) {
+export function createApp({ health = createHealth(), mode = createMode(), flow = createFlow(), runLog = createRunLog() } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(hostCheck);
@@ -59,17 +61,39 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
 
   // The live write call. Without an identifier: steps 1-12 (403 + JSON-RPC error). With one and a
   // recorded approval: steps 15-24 (PERMIT, tool ran). In Real mode the token legs are live.
+  // Rule 27: one write call is one run; the record is built from the answer the flow already computed.
+  // An approve/deny/expire changes a CIBA record the NEXT replay reads; it began no run of its own.
   api.post('/write', async (req, res) => {
     const h = req.body?.identifierHeader;
     if (h !== undefined && (typeof h !== 'string' || h.length > 200)) return bad(res, 'identifierHeader must be a string of at most 200 characters');
     try {
-      const run = mode.source() === 'real'
+      const source = mode.source();
+      const run = source === 'real'
         ? { ...(await realRun()), outcome: 'real_token_legs', note: 'Real mode runs the token legs live; approve/replay below are the simulated legs.' }
         : await flow.writeCall({ identifierHeader: h });
       run.workspaceId = workspaceId(req);
-      return res.json({ banner: BANNER(mode.source()), source: mode.source(), ...run });
+      const runId = runLog.mock(() => writeEvents(run), { source });
+      const head = runId ? runField(runId) : { run: null, runNote: RECORDER_DOWN };
+      return res.json({ banner: BANNER(source), source, ...run, ...head });
     } catch (e) {
       return res.status(502).json({ error: 'real_unavailable', message: e.message });
+    }
+  });
+
+  // The record of one run (rule 27), asked for by the id the run's own answer carried.
+  api.get('/write/run', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (Object.keys(req.query).some((k) => k !== 'runId')) return bad(res, 'the query carries a parameter this route does not take');
+    const id = req.query.runId;
+    if (typeof id !== 'string' || !/^write-[0-9a-f]{6}-[0-9]{1,9}$/.test(id)) return bad(res, 'runId must be the id of one run');
+    const run = runLog.get(id);
+    if (!run) return res.json({ record: null, message: NO_LONGER_KEPT });
+    try {
+      return res.json({ record: await recordOf(run) });
+    } catch (err) {
+      if (err instanceof RunObsError) return res.status(err.status).json({ error: err.code, message: err.message });
+      reportFailure('record', err);
+      return res.status(500).json({ error: 'server_error', message: 'The lab could not build this run\'s record (the server log says why).' });
     }
   });
 
@@ -99,7 +123,7 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
     return res.json({ claims });
   });
 
-  api.post('/reset', (_req, res) => { flow.reset(); return res.json({ ok: true, epoch: flow.state.runs.length }); });
+  api.post('/reset', (_req, res) => { flow.reset(); runLog.clear(); return res.json({ ok: true, epoch: flow.state.runs.length }); });
 
   if (fs.existsSync(WEB_DIST)) app.use(express.static(WEB_DIST));
   app.get('/favicon.ico', (_req, res) => { res.set('Content-Type', 'image/svg+xml'); res.set('Cache-Control', 'public, max-age=86400'); res.send('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3" fill="%23b5122f"/><path d="M4 9h5M8 5l3 4-3 4" stroke="white" stroke-width="2" fill="none"/></svg>'); });
