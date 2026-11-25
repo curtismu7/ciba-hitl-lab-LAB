@@ -190,3 +190,10 @@ test('the person and agent layers say why they have no row, never that the run b
     assert.doesNotMatch(row.message, /began no write call/, `${layer} reason is true for a write call`);
   }
 });
+
+test('a matcher word in an actor or step cannot reach a stdout line (the masker and the matcher strip apply to every typed field)', () => {
+  const ev = { at: '2026-11-24T10:00:00.000Z', step: 'write-decision', layer: 'authorize', outcome: 'refused', who: 'refused-token-agent', message: 'x' };
+  const line = decisionLine(ev, 'write-abc123-1');
+  assert.doesNotMatch(line, WORDS);
+  assert.match(line, LINE);
+});
