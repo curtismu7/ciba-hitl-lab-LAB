@@ -15,10 +15,11 @@ const TITLE = "What each layer logged for this run";
 // What a rejected answer, a missing field or an answer of another shape all come to: the page's own state, not a record.
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
-/** What the server said about the run of one answer: { runId } | { none: text } | { bad: true } (the answer did not say). `d` is the answer's JSON body. */
+/** What the server said about the run of one answer: { runId, source } | { none: text } | { bad: true } (the answer did not say). `d` is the answer's JSON body. */
 export function headOf(d) {
   if (isObj(d) && "run" in d) {
-    if (isObj(d.run) && typeof d.run.id === "string" && d.run.id) return { runId: d.run.id };
+    const mode = d.source === "mock" || d.source === "real" ? d.source : null;
+    if (isObj(d.run) && typeof d.run.id === "string" && d.run.id) return mode ? { runId: d.run.id, source: mode } : { bad: true };
     if (d.run === null) return { none: typeof d.runNote === "string" && d.runNote ? d.runNote : "This request began no run, so nothing was recorded." };
   }
   return { bad: true };
@@ -43,10 +44,11 @@ const Note = ({ id, role, children }) => (
 );
 
 // The one line under the panel: what a row is in this lab, true for every write call the page can make.
-const NOTE = "Rows are the steps the lab's flow computed for one write call; nothing is read from a product log. The OBO exchange is an allowed Privilege-layer row; the write's policy decision (DENY with a CIBA identifier, or PERMIT after a verified approval) is the Authorize layer's refused or allowed row. The gateway's JSON-RPC rewrite of a raw 403 repeats that decision, so it is information, and the mock resource server's tool run is the Resource server row. Person is the persona's sub and Agent is the agent client id, both read from the OBO token the run itself minted; Scopes are the token's scope claim, read back from the run's answer. A denied write never reaches the resource server. An approve, a deny, an expire or a Reset began no run: no record is shown for them, never an older one.";
+const NOTE = "Rows are the steps the lab's flow computed for one write call; nothing is read from a product log. The OBO exchange is an allowed Privilege-layer row; the write's policy decision (DENY with a CIBA identifier, or PERMIT after a verified approval) is the Authorize layer's refused or allowed row. The gateway's JSON-RPC rewrite of a raw 403 repeats that decision, so it is information, and the mock resource server's tool run is the Resource server row. Person is the persona's sub and Agent is the agent client id, both read from the OBO token the run itself minted; Scopes are the token's scope claim, read back from the run's answer. A denied write never reaches the resource server. In Real mode the exchange row is the live PingOne call; the rest stays simulated. An approve, a deny, an expire or a Reset began no run: no record is shown for them, never an older one.";
 
 export default function RunObs({ head, loading = false, empty = "Nothing has run yet. Call the write tool and its record appears here." }) {
   const runId = !loading && head?.runId ? head.runId : null;
+  const source = head?.source === "real" ? "real" : "mock"; // the mode the run was made in, as the write answer said it
   const key = runId ?? (head?.none ? "none" : head ? "bad" : "empty");
   const [answer, setAnswer] = useState(null); // { key, ...shapeOf }: the answer to the request for `key`
   useEffect(() => {
@@ -66,7 +68,7 @@ export default function RunObs({ head, loading = false, empty = "Nothing has run
   if (answer.empty) return <Note id="ro-gone">{answer.empty}</Note>;
   return (
     <div data-testid="ro-wrap">
-      <RunObservability record={answer.record} source="mock" streams={LOG_STREAMS} />
+      <RunObservability record={answer.record} source={source} streams={LOG_STREAMS} />
       <p className="ro-muted" data-testid="ro-lab-note">{NOTE}</p>
     </div>
   );

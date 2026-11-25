@@ -13,7 +13,7 @@ import { createMode, MODES } from './mode.js';
 import { realRun } from './realPingOne.js';
 import { workspaceId } from './workspace.js';
 import { shelfInfo } from './shelfLink.js';
-import { NO_RUN, createRunLog, writeEvents, recordOf, reportFailure, runField } from './runObs.js';
+import { NO_RUN, OTHER_MODE, NO_LONGER_KEPT, createRunLog, writeEvents, recordOf, reportFailure, runField } from './runObs.js';
 import { RunObsError } from './runObservability.js';
 import { TALK_INTRO, TALK_OUTRO, talkLines } from './talkTrack.js';
 
@@ -72,7 +72,7 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
         ? { ...(await realRun()), outcome: 'real_token_legs', note: 'Real mode runs the token legs live; approve/replay below are the simulated legs.' }
         : await flow.writeCall({ identifierHeader: h });
       run.workspaceId = workspaceId(req);
-      const runId = runLog.mock(() => writeEvents(run), { source });
+      const runId = runLog.mock(() => writeEvents(run), { source, workspace: run.workspaceId });
       const head = runId ? runField(runId) : { run: null, runNote: RECORDER_DOWN };
       return res.json({ banner: BANNER(source), source, ...run, ...head });
     } catch (e) {
@@ -86,8 +86,10 @@ export function createApp({ health = createHealth(), mode = createMode(), flow =
     if (Object.keys(req.query).some((k) => k !== 'runId')) return bad(res, 'the query carries a parameter this route does not take');
     const id = req.query.runId;
     if (typeof id !== 'string' || !/^write-[0-9a-f]{6}-[0-9]{1,9}$/.test(id)) return bad(res, 'runId must be the id of one run');
-    const run = runLog.get(id);
+    // The run is read in this workspace only, and only in the mode it was made in (the mode is stored on the run).
+    const run = runLog.get(id, { workspace: workspaceId(req) });
     if (!run) return res.json({ record: null, message: NO_LONGER_KEPT });
+    if (run.source !== mode.source()) return res.json({ record: null, message: OTHER_MODE });
     try {
       return res.json({ record: await recordOf(run) });
     } catch (err) {

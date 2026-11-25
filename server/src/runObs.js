@@ -16,12 +16,14 @@
 // decision, stamped once. Every value passes the masker and the line sanitiser; no field names a matcher word.
 import crypto from 'node:crypto';
 import { createMasker, createRunObservability, LAYERS } from './runObservability.js';
+import { WORKSPACE_DEFAULT } from './workspace.js';
 
 export const SERVICE = 'ciba-hitl-lab';
 export const KEEP_RUNS = 12; // closed runs kept: a replay reads the CIBA record an approve left, so the last few are enough
 export const NO_RUN_BEGAN = 'This request began no run, so nothing was recorded.';
 export const RECORDER_DOWN = 'The lab could not keep a record of this run (the server log says why).';
 export const NO_LONGER_KEPT = 'That run is no longer kept: the lab keeps the last few runs, and Reset clears them.';
+export const OTHER_MODE = 'That run was made in the other mode (Mock or Real), so it is not shown. Run the write call again in this mode.';
 
 // Only safe characters survive, so a typed identifier cannot add a second key=value pair, a quote or a line.
 export const lineValue = (v, n = 64) => String(v ?? '').replace(/[^A-Za-z0-9._:/@-]+/g, '_').slice(0, n) || '-';
@@ -61,10 +63,15 @@ export function writeEvents(run) {
     layer, product: PRODUCT[layer], step, outcome, who: agent ?? sub ?? 'the application', message, detail: { ...detail, ...chain },
   });
   const evs = [];
-  // The exchange (steps 1-7): the OBO token was minted with the actor claim. An allowed Privilege-layer row.
-  evs.push(ev('privilege', 'obo-exchange', 'allowed',
-    `The mock exchange granted the OBO token: subject kept, actor ${agent ? 'added' : 'absent'}, audience moved to the AI gateway, the full scope set kept. The token does not narrow per tool.`,
-    { exchange: 'rfc8693', ...(run.decision?.sub ? { subject: run.decision.sub } : {}) }));
+  // The exchange (steps 1-7): the OBO token was minted with the actor claim. An allowed Privilege-layer row. In Real mode the two token
+  // legs are the owner's live PingOne calls, so the row names them live and never calls them a mock.
+  const live = run.outcome === 'real_token_legs';
+  const exchange = live
+    ? { product: 'PingOne token exchange (live)', text: 'The live PingOne RFC 8693 exchange granted the OBO token' }
+    : { product: PRODUCT.privilege, text: 'The mock exchange granted the OBO token' };
+  evs.push({ ...ev('privilege', 'obo-exchange', 'allowed',
+    `${exchange.text}: subject kept, actor ${agent ? 'added' : 'absent'}, audience moved to the AI gateway, the full scope set kept. The token does not narrow per tool.`,
+    { exchange: 'rfc8693', ...(run.decision?.sub ? { subject: run.decision.sub } : {}) }), product: exchange.product });
   // The policy decision on the write (step 10 / step 17): DENY with identifier, or PERMIT.
   // The chain's policy node (SPEC-chain-view-2026-11-24): the write decision is this lab's policy decision, so the Authorize row
   // carries it. This lab's exchange is not a policy decision, so the Privilege row carries no policy key.
@@ -105,37 +112,47 @@ export function decisionLine(ev, runId) {
 export function createRunLog({ write = (line) => process.stdout.write(`${line}\n`), clock = Date.now } = {}) {
   const part = crypto.randomBytes(3).toString('hex'); // so an id never repeats after a restart or in another process
   let made = 0;
-  const kept = [];
-  const prune = () => { while (kept.length > KEEP_RUNS) kept.shift(); };
+  // One list per workspace and mode: a Live run never evicts a Mock one, and a workspace never reads another's runs.
+  const kept = new Map();
+  const keyOf = (workspace, source) => `${workspace}\u0000${source}`;
+  const listFor = (workspace, source) => {
+    const key = keyOf(workspace, source);
+    if (!kept.has(key)) kept.set(key, []);
+    return kept.get(key);
+  };
+  const prune = (list) => { while (list.length > KEEP_RUNS) list.shift(); };
   const line = (ev, id) => safely('line', () => write(decisionLine(ev, id)));
 
   return {
     // One write call = one run. `build` may throw: then nothing is stored and the answer is the baseline's.
-    mock(build, { source = 'mock' } = {}) {
+    mock(build, { source = 'mock', workspace = WORKSPACE_DEFAULT } = {}) {
       return safely('mock-run', () => {
         const events = build();
         const at = new Date(clock()).toISOString();
-        const run = { id: `write-${part}-${++made}`, source, startedAt: at, endedAt: at, events: events.map((e, seq) => ({ ...e, at, seq })), notes: [], partial: false };
-        kept.push(run); prune();
+        const run = { id: `write-${part}-${++made}`, source, workspace, startedAt: at, endedAt: at, events: events.map((e, seq) => ({ ...e, at, seq })), notes: [], partial: false };
+        const list = listFor(workspace, source);
+        list.push(run); prune(list);
         for (const ev of run.events) line(ev, run.id);
         return run.id;
       }) ?? null;
     },
-    get(id) { return kept.find((r) => r.id === id) || null; },
-    clear() { kept.length = 0; },
-    size() { return kept.length; },
+    // `source` and `workspace` narrow the lookup; without `source` the run is found in either mode (the route then says it is another mode).
+    get(id, { workspace = WORKSPACE_DEFAULT, source } = {}) {
+      const lists = source ? [listFor(workspace, source)] : ['mock', 'real'].map((s) => listFor(workspace, s));
+      return lists.flat().find((r) => r.id === id) || null;
+    },
+    clear() { kept.clear(); },
+    size() { return [...kept.values()].reduce((n, l) => n + l.length, 0); },
   };
 }
 export const runField = (id) => (id ? { run: { id } } : { run: null, runNote: RECORDER_DOWN });
 export const NO_RUN = Object.freeze({ run: null, runNote: NO_RUN_BEGAN });
 
 // ---- The record ----------------------------------------------------------------------------------------------------------------------------------------
+// Why a layer has no row. Every run is one write call, so only these two layers can be empty; the other layers always carry a row.
 const WHY = {
-  person: 'The person step shows the persona\'s sub, read from the OBO token the run minted: the lab has no real sign-in.',
-  agent: 'This run began no write call (an approve, a deny, an expire or a read): the CIBA record it changed is read by the NEXT replay.',
-  authorize: 'This run began no write call, so the mock Authorize policy decided nothing.',
-  privilege: 'This run began no write call, so no exchange ran.',
-  gateway: 'This run began no write call, so the gateway rewrote nothing.',
+  person: 'No person row: the lab has no sign-in, so it logs no one signing in. The persona\'s sub is on the exchange row\'s detail.',
+  agent: 'No separate agent row: the agent client id is on the exchange row\'s detail.',
   resource: 'A denied write never reaches the mock resource server: the tool runs only after a verified approval.',
 };
 
