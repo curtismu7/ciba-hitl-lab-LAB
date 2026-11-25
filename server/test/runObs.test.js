@@ -197,3 +197,30 @@ test('a matcher word in an actor or step cannot reach a stdout line (the masker 
   assert.doesNotMatch(line, WORDS);
   assert.match(line, LINE);
 });
+
+// Review fix (rule 27, finding 1): a Real run has no mock Authorize decision and no gateway rewrite. Its only row is the live exchange.
+test('a Real run emits only the live exchange row: no invented Authorize refusal and no gateway rewrite', () => {
+  const real = { outcome: 'real_token_legs', obo: { claims: { sub: 'user.0042', act: { sub: 'personal-agent' }, scope: 'api:read' } }, decision: { result: 'DENY' } };
+  assert.deepEqual(writeEvents(real).map((e) => [e.layer, e.step, e.outcome]), [['privilege', 'obo-exchange', 'allowed']]);
+});
+
+test('a Real run writes no refused decision line and no rpc-rewrite line to stdout', () => {
+  const lines = [];
+  const runLog = createRunLog({ write: (l) => lines.push(l), clock: () => Date.parse('2026-11-24T10:00:00.000Z') });
+  const real = { outcome: 'real_token_legs', obo: { claims: { sub: 'user.0042', act: { sub: 'personal-agent' } } }, decision: { result: 'DENY' } };
+  runLog.mock(() => writeEvents(real), { source: 'real' });
+  assert.equal(lines.length, 1, 'one line: the exchange');
+  assert.doesNotMatch(lines.join('\n'), /step=write-decision|step=rpc-rewrite|layer=authorize|layer=gateway/);
+});
+
+test('a Real run answers its record with the Authorize and gateway layers not logged, and no simulated refusal', async () => {
+  const real = { outcome: 'real_token_legs', obo: { claims: { sub: 'user.0042', act: { sub: 'personal-agent' } } }, decision: { result: 'DENY' } };
+  const at = new Date().toISOString();
+  const rec = await recordOf({ id: 'write-abc123-2', source: 'real', startedAt: at, endedAt: at, events: writeEvents(real).map((e, seq) => ({ ...e, at, seq })), notes: [], partial: false });
+  for (const layer of ['authorize', 'gateway', 'resource']) {
+    const row = rec.rows.find((x) => x.layer === layer);
+    assert.ok(row, `${layer} has a row`);
+    assert.equal(row.origin, 'not-logged');
+    assert.doesNotMatch(row.message, /denied|CIBA|identifier|rewrote/i, `${layer} does not carry the mock decision text`);
+  }
+});

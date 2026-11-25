@@ -9,8 +9,9 @@
 // Which layer holds what. The RFC 8693 exchange and its policy are the Privilege layer (an allowed row: the exchange granted the OBO
 // token; this lab's mock Authorize does not refuse it). The write's policy decision (DENY with identifier / PERMIT) is the Authorize
 // layer. The gateway's JSON-RPC rewrite of the raw 403 is the Agent gateway row (information: the rewrite repeats the decision above
-// it). The MCP tool run (or its absence) is the Resource server row. The person is the persona's sub; the agent is the agent client id;
-// the scopes are the OBO token's scope claim, read back from the run's own answer.
+// it). The MCP tool run (or its absence) is the Resource server row. The person and the agent have no row of their own (their values sit on the exchange row);
+// the scopes are the OBO token's scope claim, read back from the run's own answer. The person and the agent have no row of their own: their
+// values sit on the exchange row's detail, read from the same token.
 //
 // Stdout line: `<iso> ciba-hitl-lab decision step=<step> layer=<layer> actor=<who> result=passed|stopped|unclear run=<id>`, one per
 // decision, stamped once. Every value passes the masker and the line sanitiser; no field names a matcher word.
@@ -72,6 +73,8 @@ export function writeEvents(run) {
   evs.push({ ...ev('privilege', 'obo-exchange', 'allowed',
     `${exchange.text}: subject kept, actor ${agent ? 'added' : 'absent'}, audience moved to the AI gateway, the full scope set kept. The token does not narrow per tool.`,
     { exchange: 'rfc8693', ...(run.decision?.sub ? { subject: run.decision.sub } : {}) }), product: exchange.product });
+  // A Real run made only the two live token legs: no mock Authorize policy ran, so no decision, no rewrite and no tool run is recorded.
+  if (live) return evs;
   // The policy decision on the write (step 10 / step 17): DENY with identifier, or PERMIT.
   // The chain's policy node (SPEC-chain-view-2026-11-24): the write decision is this lab's policy decision, so the Authorize row
   // carries it. This lab's exchange is not a policy decision, so the Privilege row carries no policy key.
@@ -149,11 +152,16 @@ export const runField = (id) => (id ? { run: { id } } : { run: null, runNote: RE
 export const NO_RUN = Object.freeze({ run: null, runNote: NO_RUN_BEGAN });
 
 // ---- The record ----------------------------------------------------------------------------------------------------------------------------------------
-// Why a layer has no row. Every run is one write call, so only these two layers can be empty; the other layers always carry a row.
+// Why a layer has no row. A Mock run carries rows for every layer but person and agent; a Real run carries only the exchange row.
 const WHY = {
   person: 'No person row: the lab has no sign-in, so it logs no one signing in. The persona\'s sub is on the exchange row\'s detail.',
   agent: 'No separate agent row: the agent client id is on the exchange row\'s detail.',
   resource: 'A denied write never reaches the mock resource server: the tool runs only after a verified approval.',
+};
+const WHY_REAL = {
+  authorize: 'Not recorded in Real: this run made only the two live token legs, so the mock Authorize policy did not run.',
+  gateway: 'Not recorded in Real: this run made only the two live token legs, so no gateway rewrite was made.',
+  resource: 'Not recorded in Real: this run made only the two live token legs, so the mock resource server did not run.',
 };
 
 export async function recordOf(run, { clock = Date.now } = {}) {
@@ -161,7 +169,9 @@ export async function recordOf(run, { clock = Date.now } = {}) {
     runId: run.id, startedAt: run.startedAt, endedAt: run.endedAt, source: run.source,
     layers: LAYERS.map((layer) => {
       const own = run.events.filter((e) => e.layer === layer).map((e) => ({ at: e.at, product: e.product, outcome: e.outcome, message: e.message, detail: { ...e.detail, eventSeq: e.seq } }));
-      return { layer, products: [], reason: WHY[layer], simulated: own };
+      // A Real run's rows are the live PingOne responses the lab holds, which the collector takes as `responses`, never `simulated`.
+      const real = run.source === 'real';
+      return { layer, products: [], reason: (real && WHY_REAL[layer]) || WHY[layer], ...(real ? { responses: own } : { simulated: own }) };
     }),
   });
 }

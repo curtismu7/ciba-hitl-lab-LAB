@@ -24,3 +24,26 @@ test("a Real run's record is shown in Real, not refused as a Mock page", async (
   expect(container.textContent).not.toMatch(/Not shown/);
   expect(container.querySelector('[role="alert"]')).toBeNull();
 });
+
+// Review fix (finding 2): the one-line note must agree with the server: person and agent have no row of their own in this lab.
+test("the note under the panel says person and agent sit on the exchange row, as the server does", async () => {
+  getJson.mockResolvedValue({ record: realRecord });
+  const { container } = render(<RunObs head={{ runId: "write-abc123-1", source: "real" }} />);
+  await waitFor(() => expect(container.querySelector('[data-testid="ro-lab-note"]')).not.toBeNull());
+  const note = container.querySelector('[data-testid="ro-lab-note"]').textContent;
+  expect(note).not.toMatch(/Person is the persona/);
+  expect(note).not.toMatch(/Agent is the agent client id/);
+  expect(note).toMatch(/exchange row/);
+});
+
+// Review nit (finding 4): the page states that a run's answer can carry, without a record.
+test("no run yet shows the empty note, a run that began none shows the server's note, a bad answer is an alert", async () => {
+  const empty = render(<RunObs head={null} />);
+  expect(empty.container.querySelector('[data-testid="ro-empty"]')).not.toBeNull();
+  empty.unmount();
+  const none = render(<RunObs head={{ none: "This request began no run, so nothing was recorded." }} />);
+  expect(none.container.querySelector('[data-testid="ro-no-run"]').textContent).toMatch(/began no run/);
+  none.unmount();
+  const bad = render(<RunObs head={{ bad: true }} />);
+  expect(bad.container.querySelector('[role="alert"]')).not.toBeNull();
+});
